@@ -1,5 +1,3 @@
-import uuid
-
 from rest_framework import serializers
 
 from .models import CompteBancaire, Utilisateur, Transaction, Pret
@@ -75,12 +73,6 @@ class CompteBancaireSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        num_uuid = uuid.uuid4()
-        numero_compte = f"MyBank-{str(num_uuid)[:8]}-{validated_data["utilisateur"].id}"
-
-        validated_data["numero_compte"] = numero_compte
-        validated_data["statut"] = "en_attente"
-
         compte = CompteBancaire.objects.create(**validated_data)
         return compte
 
@@ -90,7 +82,7 @@ class CompteBancaireApprovalSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CompteBancaire
-        fields = ["id", "statut", "commentaire_admin"]
+        fields = ["id", "statut"]
 
     def validate_statut(self, value):
         valid_statuses = ["approuve", "rejete"]
@@ -102,9 +94,6 @@ class CompteBancaireApprovalSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         instance.statut = validated_data.get("statut", instance.statut)
-        instance.commentaire_admin = validated_data.get(
-            "commentaire_admin", instance.commentaire_admin
-        )
         instance.save()
         return instance
 
@@ -116,39 +105,38 @@ class TransactionSerializer(serializers.ModelSerializer):
     destination_numero = serializers.ReadOnlyField(
         source="compte_destination.numero_compte"
     )
+    compte_destinataire = serializers.PrimaryKeyRelatedField(
+        queryset=CompteBancaire.objects.filter(statut="approuve"),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = Transaction
-        fields = [
-            "id",
-            "compte_source",
-            "source_numero",
-            "compte_destination",
-            "destination_numero",
-            "type",
-            "montant",
-            "status",
-            "date_transaction",
-        ]
-        read_only_fields = ["date_transaction", "status"]
+        fields = ["id", "compte", "montant", "type", "date", "compte_destinataire"]
+        read_only_fields = ["id", "date"]
+
+    def validate(self, data):
+        # Valider que pour un virement, un compte destinataire est fourni
+        if data.get("type") == "virement" and "compte_destinataire" not in data:
+            raise serializers.ValidationError(
+                "Un compte destinataire est requis pour un virement"
+            )
+
+        # Valider que le compte source et destinataire sont différents
+        if data.get("type") == "virement" and data.get("compte") == data.get(
+            "compte_destinataire"
+        ):
+            raise serializers.ValidationError(
+                "Le compte source et destinataire ne peuvent pas être identiques"
+            )
+
+        return data
 
     def validate_montant(self, value):
         if value <= 0:
             raise serializers.ValidationError("Le montant doit être supérieur à zéro.")
         return value
-
-    def validate(self, data):
-        if "compte_source" in data and "montant" in data:
-            if data["compte_source"].solde < data["montant"]:
-                raise serializers.ValidationError(
-                    "Solde insuffisant pour effectuer cette transaction."
-                )
-        if data["type"] == "transfert" and not data.get("compte_destination"):
-            raise serializers.ValidationError(
-                "La destination est requise pour un transfert."
-            )
-
-        return data
 
     def create(self, validated_data):
 
@@ -186,7 +174,13 @@ class PretSerializer(serializers.ModelSerializer):
             "date_demande",
             "date_remboursement",
         ]
-        read_only_fields = ["date_demande", "date_remboursement"]
+        read_only_fields = [
+            "date_demande",
+            "date_remboursement",
+            "compte",
+            "numero_compte",
+            "utilisateur_nom",
+        ]
 
     def validate_montant(self, value):
         if value <= 0:
@@ -194,12 +188,3 @@ class PretSerializer(serializers.ModelSerializer):
                 "Le montant du prêt doit être supérieur à zéro."
             )
         return value
-
-    def validate(self, data):
-        if "compte" in data and "montant" in data:
-            solde = data["compte"].solde
-            if data["montant"] > (solde * 10):
-                raise serializers.ValidationError(
-                    "Le montant du prêt ne peut pas dépasser 10 fois le solde du compte."
-                )
-        return data

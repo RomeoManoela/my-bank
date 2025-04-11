@@ -6,3 +6,17 @@ class IsAdmin(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == "admin"
+
+
+class IsClient(permissions.BasePermission):
+    """Permission personnalisée pour vérifier si l'utilisateur est client"""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "client"
+
+
+class IsEmployee(permissions.BasePermission):
+    """Permission personnalisée pour vérifier si l'utilisateur est caissier"""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == "caissier"

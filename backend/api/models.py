@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -37,7 +39,7 @@ class CompteBancaire(models.Model):
     utilisateur = models.ForeignKey(
         Utilisateur, on_delete=models.CASCADE, related_name="comptes"
     )
-    numero_compte = models.CharField(max_length=20, unique=True)
+    numero_compte = models.CharField(max_length=30, unique=True, default=0000)
     type_compte = models.CharField(max_length=20, choices=CHOIX_TYPE)
     attestation_emploi = models.FileField(
         upload_to="attestations", blank=True, null=True
@@ -47,10 +49,15 @@ class CompteBancaire(models.Model):
     statut = models.CharField(
         max_length=20, choices=STATUT_CHOICES, default="en_attente"
     )
-    commentaire_admin = models.TextField(blank=True, null=True)
 
     def __str__(self):
         return f"Compte {self.numero_compte} - {self.utilisateur.username}"
+
+    def save(self, *args, **kwargs):
+        num_uuid = uuid.uuid4()
+        numero_compte = f"MyBank-{str(num_uuid)[:8]}-{self.utilisateur.id}"
+        self.numero_compte = numero_compte
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Compte Bancaire"
@@ -88,7 +95,11 @@ class Transaction(models.Model):
         ("transfert", "Transfert"),
         ("pret", "Prêt"),
     )
-    CHOIX_STATUS = (("succès", "Succès"), ("échoué", "Échoué"))
+    CHOIX_STATUS = (
+        ("succès", "Succès"),
+        ("échoué", "Échoué"),
+        ("en_attente", "En attente"),
+    )
 
     compte_source = models.ForeignKey(
         CompteBancaire, on_delete=models.CASCADE, related_name="transactions_source"
@@ -103,6 +114,7 @@ class Transaction(models.Model):
     type = models.CharField(max_length=20, choices=CHOIX_TYPE_TRANSACTION)
     montant = models.DecimalField(max_digits=10, decimal_places=2)
     status = models.CharField(max_length=10, choices=CHOIX_STATUS)
+    commentaire = models.TextField(blank=True, null=True)
     date_transaction = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
