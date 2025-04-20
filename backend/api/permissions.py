@@ -19,4 +19,4 @@ class IsEmployee(permissions.BasePermission):
     """Permission personnalisée pour vérifier si l'utilisateur est caissier"""
 
     def has_permission(self, request, view):
-        return request.user.is_authenticated and request.user.role == "caissier"
+        return request.user.is_authenticated and request.user.role == "employee"

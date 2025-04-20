@@ -5,7 +5,7 @@ from rest_framework import permissions, generics
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import CompteBancaire, Utilisateur, Pret, Transaction
 from .permissions import IsAdmin, IsClient
@@ -40,7 +40,7 @@ class TokenObtainPersonnalisee(TokenObtainPairView):
         return res
 
 
-class RefreshTokenPersonnalisee(TokenObtainPairView):
+class RefreshTokenPersonnalisee(TokenRefreshView):
     """Endpoint pour rafraîchir un token d'authentification personnalisé"""
 
     def post(self, request: Request, *args, **kwargs) -> Response:
