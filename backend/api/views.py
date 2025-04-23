@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from rest_framework import permissions, generics
 from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -55,11 +56,14 @@ class CreationCompteBancaire(generics.CreateAPIView):
     serializer_class = CompteBancaireSerializer
     queryset = CompteBancaire.objects.all()
 
+    def perform_create(self, serializer):
+        serializer.save(utilisateur=self.request.user)
+
 
 class ListeComptesBancaires(generics.ListAPIView):
     """Endpoint pour lister tous les comptes bancaires"""
 
-    permission_classes = [IsClient, IsAdmin]
+    permission_classes = [IsAuthenticated]
     serializer_class = CompteBancaireSerializer
 
     def get_queryset(self):
@@ -116,6 +120,7 @@ class FaireUnPret(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         compte = serializer.validated_data.get("compte")
+        print("compte", compte)
 
         # Vérifie que l'utilisateur est propriétaire du compte
         if compte.utilisateur != self.request.user:
@@ -348,4 +353,87 @@ class ApprouverRejeterVirement(generics.UpdateAPIView):
         serializer.save()
         return Response(
             {"message": f"Virement {nouveau_statut}", "transaction": serializer.data}
+        )
+
+
+class MobileMoneyTransactionView(generics.CreateAPIView):
+    """Endpoint pour les transactions via Mobile Money"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = TransactionSerializer
+
+    def create(self, request, *args, **kwargs):
+        compte_id = request.data.get("compte")
+        montant = Decimal(request.data.get("montant", 0))  # Convert to Decimal here
+        type_transaction = request.data.get("type_transaction")  # 'depot' ou 'retrait'
+        fournisseur = request.data.get("fournisseur")  # 'mvola' ou 'orange_money'
+        numero_telephone = request.data.get("numero_telephone")
+
+        if not all(
+            [compte_id, montant, type_transaction, fournisseur, numero_telephone]
+        ):
+            return Response({"detail": "Tous les champs sont requis."}, status=400)
+
+        try:
+            compte = CompteBancaire.objects.get(id=compte_id, utilisateur=request.user)
+        except CompteBancaire.DoesNotExist:
+            return Response({"detail": "Compte non trouvé."}, status=404)
+
+        if compte.statut != "approuve":
+            return Response(
+                {
+                    "detail": "Le compte doit être approuvé pour effectuer cette opération."
+                },
+                status=400,
+            )
+
+        # Calcul des frais selon le fournisseur
+        frais_pourcentage = {
+            "mvola": {"depot": 0.003, "retrait": 0.008},
+            "orange_money": {"depot": 0.005, "retrait": 0.01},
+        }.get(fournisseur, {"depot": 0.005, "retrait": 0.01})
+
+        frais = montant * Decimal(frais_pourcentage.get(type_transaction, 0.005))
+
+        # Pour un retrait, vérifier que le solde est suffisant
+        if type_transaction == "retrait":
+            montant_total = montant + frais
+            if compte.solde < montant_total:
+                return Response(
+                    {
+                        "detail": f"Solde insuffisant. Montant demandé: {montant} + frais: {frais}"
+                    },
+                    status=400,
+                )
+
+            # Effectuer le retrait
+            compte.solde -= montant_total
+            compte.save()
+
+            commentaire = f"Retrait via {fournisseur} ({numero_telephone}). Montant: {montant}, Frais: {frais}"
+        else:  # dépôt
+            # Effectuer le dépôt
+            montant_net = montant - frais
+            compte.solde += montant_net
+            compte.save()
+
+            commentaire = f"Dépôt via {fournisseur} ({numero_telephone}). Montant: {montant}, Frais: {frais}"
+
+        # Créer la transaction
+        transaction = Transaction.objects.create(
+            compte_source=compte,  # Use compte_source instead of compte
+            type=type_transaction,
+            montant=montant,
+            status="succès",
+            commentaire=commentaire,
+            # frais field doesn't exist in the model
+        )
+
+        return Response(
+            {
+                "detail": f"{type_transaction.capitalize()} effectué avec succès.",
+                "transaction": TransactionSerializer(transaction).data,
+                "nouveau_solde": compte.solde,
+            },
+            status=201,
         )

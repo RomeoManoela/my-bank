@@ -81,7 +81,7 @@ function Registration() {
                   </span>
                   <input
                     id="first_name"
-                    name="first name"
+                    name="first_name"
                     type="text"
                     required
                     className="block w-full flex-1 rounded-r-md border-gray-700 bg-gray-800 text-white focus:border-lime-500 focus:ring-lime-500 sm:text-sm"
@@ -99,7 +99,7 @@ function Registration() {
                   </span>
                   <input
                     id="last_name"
-                    name="last name"
+                    name="last_name"
                     type="text"
                     required
                     className="block w-full flex-1 rounded-r-md border-gray-700 bg-gray-800 text-white focus:border-lime-500 focus:ring-lime-500 sm:text-sm"
@@ -119,7 +119,7 @@ function Registration() {
                 </span>
                 <input
                   id="email"
-                  name="email address"
+                  name="email"
                   type="email"
                   autoComplete="email"
                   required

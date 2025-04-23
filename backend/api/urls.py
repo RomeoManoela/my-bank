@@ -7,7 +7,7 @@ urlpatterns = [
     path("inscription/", views.InscriptionUtilisateur.as_view(), name="inscription"),
     path("token/", views.TokenObtainPersonnalisee.as_view(), name="token_obtain"),
     path(
-        "token/refresh/",
+        "token-refresh/",
         views.RefreshTokenPersonnalisee.as_view(),
         name="token_refresh",
     ),
@@ -34,7 +34,7 @@ urlpatterns = [
     ),
     # Transactions
     path(
-        "transactions/",
+        "transactions/creat/",
         views.EffectuerTransaction.as_view(),
         name="effectuer-transaction",
     ),
@@ -42,5 +42,10 @@ urlpatterns = [
         "transactions/<int:pk>/approuver/",
         views.ApprouverRejeterVirement.as_view(),
         name="approuver-rejeter-virement",
+    ),
+    path(
+        "transactions/mobile-money/",
+        views.MobileMoneyTransactionView.as_view(),
+        name="mobile-money-transaction",
     ),
 ]

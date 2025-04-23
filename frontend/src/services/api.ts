@@ -35,20 +35,16 @@ api.interceptors.response.use(
       originalRequest._retry = true
 
       try {
-        const response = await axios.post(
-          `${baseURL}/token-refresh/`,
-          {},
-          { withCredentials: true },
-        )
+        const response = await axios.post(`${baseURL}token-refresh/`, {}, { withCredentials: true })
 
         const newToken = response.data.access
-        localStorage.setItem('accessToken', newToken)
+        localStorage.setItem('access_token', newToken)
 
         originalRequest.headers.Authorization = `Bearer ${newToken}`
 
         return api(originalRequest)
       } catch (refreshError) {
-        localStorage.removeItem('accessToken')
+        localStorage.removeItem('access_token')
         window.location.href = '/login'
         return Promise.reject(refreshError)
       }
@@ -60,11 +56,21 @@ api.interceptors.response.use(
 
 export const logout = async (): Promise<void> => {
   try {
-    await api.post('logout/')
-    localStorage.removeItem('accessToken')
+    localStorage.removeItem('access_token')
     window.location.href = '/login'
   } catch (error) {
     console.error(error)
+  }
+}
+
+// Fonction pour récupérer les transactions d'un utilisateur
+export const getUserTransactions = async (): Promise<Transaction[]> => {
+  try {
+    const response = await api.get('/transactions/')
+    return response.data
+  } catch (error) {
+    console.error('Erreur lors de la récupération des transactions:', error)
+    throw error
   }
 }
 

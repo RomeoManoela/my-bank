@@ -110,11 +110,24 @@ class TransactionSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True,
     )
+    date = serializers.ReadOnlyField(source="date_transaction")
 
     class Meta:
         model = Transaction
-        fields = ["id", "compte", "montant", "type", "date", "compte_destinataire"]
-        read_only_fields = ["id", "date"]
+        fields = [
+            "id",
+            "compte_source",
+            "compte_destinataire",
+            "type",
+            "montant",
+            "date",
+            "date_transaction",
+            "status",
+            "commentaire",
+            "source_numero",
+            "destination_numero",
+        ]
+        read_only_fields = ["id", "date_transaction"]
 
     def validate(self, data):
         # Valider que pour un virement, un compte destinataire est fourni
@@ -158,8 +171,12 @@ class TransactionSerializer(serializers.ModelSerializer):
 class PretSerializer(serializers.ModelSerializer):
     """Serializer pour les prêts"""
 
-    compte_numero = serializers.ReadOnlyField(source="compte.numero_compte")
-    utilisateur_nom = serializers.ReadOnlyField(source="compte.utilisateur.username")
+    compte_numero = serializers.ReadOnlyField(
+        source="compte.numero_compte", read_only=True
+    )
+    utilisateur_nom = serializers.ReadOnlyField(
+        source="compte.utilisateur.username", read_only=True
+    )
 
     class Meta:
         model = Pret
@@ -177,9 +194,8 @@ class PretSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "date_demande",
             "date_remboursement",
-            "compte",
-            "numero_compte",
             "utilisateur_nom",
+            "compte_numero",
         ]
 
     def validate_montant(self, value):
