@@ -437,3 +437,19 @@ class MobileMoneyTransactionView(generics.CreateAPIView):
             },
             status=201,
         )
+
+
+class ListTransaction(generics.ListAPIView):
+    """Endpoint pour lister les transactions d'un utilisateur"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = TransactionSerializer
+
+    def get_queryset(self):
+        if self.request.user.role == "admin":
+            # Récupérer toutes les transactions, triées par date décroissante
+            return Transaction.objects.all().order_by("-date_transaction")
+        # Récupérer les transactions de l'utilisateur, triées par date décroissante
+        return Transaction.objects.filter(
+            compte_source__utilisateur=self.request.user
+        ).order_by("-date_transaction")

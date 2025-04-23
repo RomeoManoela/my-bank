@@ -48,4 +48,5 @@ urlpatterns = [
         views.MobileMoneyTransactionView.as_view(),
         name="mobile-money-transaction",
     ),
+    path("transactions/", views.ListTransaction.as_view(), name="liste-transactions"),
 ]

@@ -45,6 +45,16 @@ export async function login_action({ request }: { request: Request }) {
   }
 }
 
+export async function fetch_transactions_action() {
+  try {
+    const response = await api.get('transactions/')
+    return response.data
+  } catch (e: any) {
+    console.error(e)
+    return { error: 'Erreur lors du chargement des transactions' }
+  }
+}
+
 export async function fetch_accounts_action() {
   try {
     const response = await api.get('comptes/')

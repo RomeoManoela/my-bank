@@ -7,14 +7,6 @@ const api: AxiosInstance = axios.create({
   withCredentials: true,
 })
 
-api.interceptors.request.use((config) => {
-  const token: string | null = localStorage.getItem('access_token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
 // Intercepteur pour ajouter le token JWT, accessToken aux requêtes
 api.interceptors.request.use((config) => {
   const token: string | null = localStorage.getItem('access_token')
@@ -35,21 +27,33 @@ api.interceptors.response.use(
       originalRequest._retry = true
 
       try {
-        const response = await axios.post(`${baseURL}token-refresh/`, {}, { withCredentials: true })
+        // Utiliser axios directement pour éviter une boucle avec l'intercepteur
+        const response = await axios.post(
+          `${baseURL}token-refresh/`,
+          {},
+          {
+            withCredentials: true,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        )
 
         const newToken = response.data.access
         localStorage.setItem('access_token', newToken)
 
+        // Mettre à jour le token dans la requête originale
         originalRequest.headers.Authorization = `Bearer ${newToken}`
 
+        // Réessayer la requête originale avec le nouveau token
         return api(originalRequest)
       } catch (refreshError) {
+        // En cas d'échec du rafraîchissement, déconnecter l'utilisateur
         localStorage.removeItem('access_token')
         window.location.href = '/login'
         return Promise.reject(refreshError)
       }
     }
 
+    // Pour les autres erreurs, simplement les rejeter
     return Promise.reject(error)
   },
 )
