@@ -105,19 +105,43 @@ class TransactionSerializer(serializers.ModelSerializer):
     destination_numero = serializers.ReadOnlyField(
         source="compte_destination.numero_compte"
     )
-    compte_destinataire = serializers.PrimaryKeyRelatedField(
+    # Renommer le champ pour qu'il corresponde à ce qui est envoyé depuis le frontend
+    compte_destination = serializers.PrimaryKeyRelatedField(
         queryset=CompteBancaire.objects.filter(statut="approuve"),
         required=False,
         write_only=True,
     )
     date = serializers.ReadOnlyField(source="date_transaction")
 
+    # Ajoutez cette méthode pour déboguer les erreurs de validation
+    def validate(self, attrs):
+        print("Validation des données:", attrs)
+        try:
+            # Valider que pour un virement, un compte destinataire est fourni
+            if attrs.get("type") == "virement" and "compte_destination" not in attrs:
+                raise serializers.ValidationError(
+                    "Un compte destinataire est requis pour un virement"
+                )
+
+            # Valider que le compte source et destinataire sont différents
+            if attrs.get("type") == "virement" and attrs.get(
+                "compte_source"
+            ) == attrs.get("compte_destination"):
+                raise serializers.ValidationError(
+                    "Le compte source et destinataire ne peuvent pas être identiques"
+                )
+
+            return attrs
+        except Exception as e:
+            print("Erreur de validation:", str(e))
+            raise
+
     class Meta:
         model = Transaction
         fields = [
             "id",
             "compte_source",
-            "compte_destinataire",
+            "compte_destination",
             "type",
             "montant",
             "date",
@@ -129,41 +153,22 @@ class TransactionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "date_transaction"]
 
-    def validate(self, data):
-        # Valider que pour un virement, un compte destinataire est fourni
-        if data.get("type") == "virement" and "compte_destinataire" not in data:
-            raise serializers.ValidationError(
-                "Un compte destinataire est requis pour un virement"
-            )
-
-        # Valider que le compte source et destinataire sont différents
-        if data.get("type") == "virement" and data.get("compte") == data.get(
-            "compte_destinataire"
-        ):
-            raise serializers.ValidationError(
-                "Le compte source et destinataire ne peuvent pas être identiques"
-            )
-
-        return data
-
     def validate_montant(self, value):
         if value <= 0:
             raise serializers.ValidationError("Le montant doit être supérieur à zéro.")
         return value
 
     def create(self, validated_data):
-
         compte_source = validated_data.get("compte_source")
         compte_destination = validated_data.get("compte_destination")
         montant = validated_data.get("montant")
 
-        compte_source.solde -= montant
-        compte_destination.solde += montant
+        # Vérifier que le compte destination existe pour les virements
+        if validated_data.get("type") == "transfert" and not compte_destination:
+            raise serializers.ValidationError(
+                "Compte destinataire requis pour un virement"
+            )
 
-        compte_source.save()
-        compte_destination.save()
-
-        validated_data["status"] = "succès"
         transaction = Transaction.objects.create(**validated_data)
         return transaction
 

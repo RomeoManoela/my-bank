@@ -1,6 +1,7 @@
 from django.urls import path
 
 from . import views
+from .views import verify_account
 
 urlpatterns = [
     # Authentification
@@ -34,7 +35,7 @@ urlpatterns = [
     ),
     # Transactions
     path(
-        "transactions/creat/",
+        "transactions/create/",
         views.EffectuerTransaction.as_view(),
         name="effectuer-transaction",
     ),
@@ -49,4 +50,5 @@ urlpatterns = [
         name="mobile-money-transaction",
     ),
     path("transactions/", views.ListTransaction.as_view(), name="liste-transactions"),
+    path("verify-account/", verify_account, name="verify-account"),
 ]

@@ -24,17 +24,17 @@ import {
 import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import MobileMoneyModal from '../components/MobileMoneyModal'
+import SendMoneyModal from '../components/SendMoneyModal'
 
 export default function Dashboard() {
   const [accounts, setAccounts] = useState<CompteBancaire[]>([])
   const [loading, setLoading] = useState(true)
   const [showNewAccountModal, setShowNewAccountModal] = useState(false)
   const [showLoanModal, setShowLoanModal] = useState(false)
+  const [showMobileMoneyModal, setShowMobileMoneyModal] = useState(false)
+  const [showSendMoneyModal, setShowSendMoneyModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<any[]>([])
-
-  // New state variable for Mobile Money modal
-  const [showMobileMoneyModal, setShowMobileMoneyModal] = useState(false)
 
   // États pour le formulaire de création de compte
   const [accountType, setAccountType] = useState<'courant' | 'epargne'>('courant')
@@ -66,30 +66,14 @@ export default function Dashboard() {
 
   useEffect(() => {
     async function loadData() {
-      try {
-        const accountsData = await fetch_accounts_action()
-        if (accountsData.error) {
-          setError(accountsData.error)
-        } else {
-          setAccounts(accountsData)
-        }
-
-        // Charger les transactions
-        const transactionsData = await fetch_transactions_action()
-        if (transactionsData.error) {
-          console.error(transactionsData.error)
-        } else {
-          setTransactions(transactionsData)
-        }
-      } catch (err) {
-        setError('Impossible de charger vos données')
-      } finally {
-        setLoading(false)
-      }
+      setLoading(true)
+      await fetchAccounts()
+      await fetchTransactions()
+      setLoading(false)
     }
 
     loadData()
-  }, [transactions])
+  }, []) // Retirez transactions de la dépendance pour éviter les boucles infinies
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -302,6 +286,33 @@ export default function Dashboard() {
     }).format(date)
   }
 
+  // Ajoutez ces fonctions pour rafraîchir les données
+  const fetchAccounts = async () => {
+    try {
+      const accountsData = await fetch_accounts_action()
+      if (accountsData.error) {
+        setError(accountsData.error)
+      } else {
+        setAccounts(accountsData)
+      }
+    } catch (err) {
+      setError('Impossible de charger vos comptes')
+    }
+  }
+
+  const fetchTransactions = async () => {
+    try {
+      const transactionsData = await fetch_transactions_action()
+      if (transactionsData.error) {
+        console.error(transactionsData.error)
+      } else {
+        setTransactions(transactionsData)
+      }
+    } catch (err) {
+      console.error('Impossible de charger les transactions')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#031a09] p-6">
       {/* Header */}
@@ -428,7 +439,11 @@ export default function Dashboard() {
                   <FaChartLine className="mb-3 h-8 w-8 text-lime-400" />
                   <span className="text-sm font-medium text-amber-100">Investissements</span>
                 </button>
-                <button className="flex flex-col items-center rounded-xl border border-lime-900 p-6 text-center transition hover:border-lime-700 hover:bg-[#1a3019] hover:shadow-sm">
+                <button
+                  onClick={() => accounts.length > 0 && setShowSendMoneyModal(true)}
+                  disabled={accounts.length === 0}
+                  className="flex flex-col items-center rounded-xl border border-lime-900 p-6 text-center transition hover:border-lime-700 hover:bg-[#1a3019] hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-lime-900 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                >
                   <FaExchangeAlt className="mb-3 h-8 w-8 text-lime-400" />
                   <span className="text-sm font-medium text-amber-100">Envoyer de l'argent</span>
                 </button>
@@ -687,6 +702,18 @@ export default function Dashboard() {
           accounts={accounts}
           onClose={() => setShowMobileMoneyModal(false)}
           onSubmit={handleMobileMoneyTransaction}
+        />
+      )}
+
+      {/* Send Money Modal */}
+      {showSendMoneyModal && (
+        <SendMoneyModal
+          accounts={accounts}
+          onClose={() => setShowSendMoneyModal(false)}
+          onSuccess={() => {
+            fetchAccounts()
+            fetchTransactions()
+          }}
         />
       )}
     </div>

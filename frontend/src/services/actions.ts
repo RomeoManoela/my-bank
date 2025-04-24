@@ -1,6 +1,6 @@
 import { AxiosResponse } from 'axios'
 import api from './api.ts'
-import { redirect } from 'react-router-dom'
+import { ActionFunctionArgs, redirect } from 'react-router-dom'
 
 export async function registration_action({ request }: { request: Request }) {
   const formData: FormData = await request.formData()
@@ -127,5 +127,71 @@ export async function mobile_money_transaction_action({ request }: { request: Re
       return { error: e.response.data.detail || 'Erreur lors de la transaction' }
     }
     return { error: 'Erreur lors de la transaction' }
+  }
+}
+
+// Action pour vérifier un compte par son numéro
+export async function verify_account_action({ request }: ActionFunctionArgs) {
+  try {
+    const data = await request.json()
+    const response = await api.post('/verify-account/', data)
+    return response.data
+  } catch (error: any) {
+    if (error.response && error.response.data) {
+      return { error: error.response.data.error || 'Erreur lors de la vérification du compte' }
+    }
+    return { error: error.message || 'Erreur lors de la vérification du compte' }
+  }
+}
+
+// Action pour effectuer un transfert d'argent
+export async function transfer_money_action({ request }: ActionFunctionArgs) {
+  try {
+    const formData = await request.formData()
+
+    // S'assurer que tous les champs requis sont présents
+    const compte_source = formData.get('compte_source')
+    const compte_destination = formData.get('compte_destination')
+    const montant = formData.get('montant')
+    const description = formData.get('description') || 'Virement'
+
+    // Vérifier que compte_destination est présent
+    if (!compte_destination) {
+      console.error('Erreur: compte_destination manquant dans les données du formulaire')
+      return { error: 'Compte destinataire requis pour un virement' }
+    }
+
+    // Créer l'objet de données à envoyer
+    const transferData = {
+      compte_source,
+      compte_destination,
+      montant: parseFloat(montant as string),
+      type: 'transfert',
+      status: 'en_attente',
+      commentaire: description,
+    }
+
+    // Log des données envoyées pour le débogage
+    console.log('Données envoyées au backend:', transferData)
+
+    const response = await api.post('transactions/create/', transferData)
+    return response.data
+  } catch (error: any) {
+    // Log détaillé de l'erreur
+    console.error('Erreur complète:', error)
+    console.error('Détails de la réponse:', error.response?.data)
+
+    if (error.response && error.response.data) {
+      if (Array.isArray(error.response.data)) {
+        return { error: error.response.data.join(', ') }
+      }
+      return {
+        error:
+          error.response.data.detail ||
+          JSON.stringify(error.response.data) ||
+          'Erreur lors du transfert',
+      }
+    }
+    return { error: error.message || 'Erreur lors du transfert' }
   }
 }

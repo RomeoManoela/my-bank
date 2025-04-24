@@ -2,6 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from rest_framework import permissions, generics
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -263,20 +264,21 @@ class ListePret(generics.ListAPIView):
 
 
 class EffectuerTransaction(generics.CreateAPIView):
-    """Endpoint pour effectuer une transaction (dépôt/retrait/virement)"""
+    """Endpoint pour effectuer une transaction (virement)"""
 
     permission_classes = [IsClient]
     serializer_class = TransactionSerializer
 
     def perform_create(self, serializer):
-        compte = serializer.validated_data.get("compte")
+        # Log des données validées pour le débogage
+        print("Données validées:", serializer.validated_data)
+        compte_source = serializer.validated_data.get("compte_source")
         montant = serializer.validated_data.get("montant")
-        type_transaction = serializer.validated_data.get("type")
-        compte_destinataire = serializer.validated_data.get("compte_destinataire", None)
+        compte_destination = serializer.validated_data.get("compte_destination", None)
 
         # Vérifie que l'utilisateur est propriétaire du compte source
         if (
-            compte.utilisateur != self.request.user
+            compte_source.utilisateur != self.request.user
             and self.request.user.role != "admin"
         ):
             raise PermissionDenied(
@@ -284,38 +286,19 @@ class EffectuerTransaction(generics.CreateAPIView):
             )
 
         # Vérifie que le compte est approuvé
-        if compte.statut != "approuve":
+        if compte_source.statut != "approuve":
             raise ValidationError(
                 "Le compte doit être approuvé pour effectuer des transactions"
             )
 
-        # Gére le retrait
-        if type_transaction == "retrait":
-            if compte.solde < montant:
-                raise ValidationError("Solde insuffisant")
-            compte.solde -= montant
-            compte.save()
-            serializer.save(status="succès", utilisateur=self.request.user)
+        if not compte_destination:
+            raise ValidationError("Compte destinataire requis pour un virement")
 
-        # Gére le dépôt
-        elif type_transaction == "depot":
-            compte.solde += montant
-            compte.save()
-            serializer.save(status="succès", utilisateur=self.request.user)
+        if compte_source.solde < montant:
+            raise ValidationError("Solde insuffisant pour effectuer ce virement")
 
-        # Gére le virement
-        elif type_transaction == "virement":
-            if not compte_destinataire:
-                raise ValidationError("Compte destinataire requis pour un virement")
-
-            if compte_destinataire.statut != "approuve":
-                raise ValidationError("Le compte destinataire doit être approuvé")
-
-            if compte.solde < montant:
-                raise ValidationError("Solde insuffisant pour effectuer ce virement")
-
-            # Pour les virements, on met en attente pour approbation par un admin
-            serializer.save(utilisateur=self.request.user, status="en_attente")
+        # Pour les virements, on met en attente pour approbation par un admin
+        serializer.save()
 
 
 class ApprouverRejeterVirement(generics.UpdateAPIView):
@@ -453,3 +436,29 @@ class ListTransaction(generics.ListAPIView):
         return Transaction.objects.filter(
             compte_source__utilisateur=self.request.user
         ).order_by("-date_transaction")
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def verify_account(request):
+    """Endpoint pour vérifier un compte bancaire par son numéro"""
+    numero_compte = request.data.get("numero_compte")
+
+    if not numero_compte:
+        return Response({"error": "Numéro de compte requis"}, status=400)
+
+    try:
+        compte = CompteBancaire.objects.get(
+            numero_compte=numero_compte, statut="approuve"
+        )
+        # Retourner uniquement les informations nécessaires pour la vérification
+        return Response(
+            {
+                "id": compte.id,
+                "numero_compte": compte.numero_compte,
+                "nom_proprietaire": compte.utilisateur.last_name,
+                "prenom_proprietaire": compte.utilisateur.first_name,
+            }
+        )
+    except CompteBancaire.DoesNotExist:
+        return Response({"error": "Compte non trouvé ou non approuvé"}, status=404)
