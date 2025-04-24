@@ -1,6 +1,7 @@
 from datetime import datetime
 from decimal import Decimal
 
+from django.db.models import Q
 from rest_framework import permissions, generics
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -432,9 +433,11 @@ class ListTransaction(generics.ListAPIView):
         if self.request.user.role == "admin":
             # Récupérer toutes les transactions, triées par date décroissante
             return Transaction.objects.all().order_by("-date_transaction")
-        # Récupérer les transactions de l'utilisateur, triées par date décroissante
+
+        # Récupérer les transactions où l'utilisateur est source OU destinataire
+        user_accounts = CompteBancaire.objects.filter(utilisateur=self.request.user)
         return Transaction.objects.filter(
-            compte_source__utilisateur=self.request.user
+            Q(compte_source__in=user_accounts) | Q(compte_destination__in=user_accounts)
         ).order_by("-date_transaction")
 
 

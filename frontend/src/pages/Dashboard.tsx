@@ -458,64 +458,85 @@ export default function Dashboard() {
 
               {transactions.length > 0 ? (
                 <div className="max-h-[600px] space-y-4 overflow-y-auto pr-2">
-                  {transactions.slice(0, 10).map((transaction) => (
-                    <div
-                      key={transaction.id}
-                      className="rounded-lg border border-lime-900 bg-gray-800 bg-opacity-40 p-4 transition hover:bg-opacity-50"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center">
-                          {transaction.type === 'depot' && (
-                            <div className="mr-3 rounded-full bg-green-900 bg-opacity-30 p-2">
-                              <FaArrowDown className="h-4 w-4 text-green-400" />
+                  {transactions.slice(0, 10).map((transaction) => {
+                    console.log(transaction)
+                    // Vérifier si l'un des comptes de l'utilisateur est le compte de destination
+                    const isRecipient =
+                      transaction.type === 'transfert' &&
+                      accounts.some(
+                        (account) => account.numero_compte === transaction.destination_numero,
+                      )
+
+                    return (
+                      <div
+                        key={transaction.id}
+                        className="rounded-lg border border-lime-900 bg-gray-800 bg-opacity-40 p-4 transition hover:bg-opacity-50"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-center">
+                            {transaction.type === 'depot' && (
+                              <div className="mr-3 rounded-full bg-green-900 bg-opacity-30 p-2">
+                                <FaArrowDown className="h-4 w-4 text-green-400" />
+                              </div>
+                            )}
+                            {transaction.type === 'retrait' && (
+                              <div className="mr-3 rounded-full bg-red-900 bg-opacity-30 p-2">
+                                <FaArrowUp className="h-4 w-4 text-red-400" />
+                              </div>
+                            )}
+                            {transaction.type === 'transfert' && (
+                              <div className="mr-3 rounded-full bg-blue-900 bg-opacity-30 p-2">
+                                <FaExchangeAlt className="h-4 w-4 text-blue-400" />
+                              </div>
+                            )}
+                            <div>
+                              <p className="font-medium text-amber-100">
+                                {transaction.type === 'depot'
+                                  ? 'Dépôt'
+                                  : transaction.type === 'retrait'
+                                    ? 'Retrait'
+                                    : isRecipient
+                                      ? 'Virement reçu'
+                                      : 'Virement'}
+                              </p>
+                              <p className="text-xs text-gray-400">
+                                {formatDate(transaction.date_transaction)}
+                              </p>
                             </div>
-                          )}
-                          {transaction.type === 'retrait' && (
-                            <div className="mr-3 rounded-full bg-red-900 bg-opacity-30 p-2">
-                              <FaArrowUp className="h-4 w-4 text-red-400" />
-                            </div>
-                          )}
-                          {transaction.type === 'virement' && (
-                            <div className="mr-3 rounded-full bg-blue-900 bg-opacity-30 p-2">
-                              <FaExchangeAlt className="h-4 w-4 text-blue-400" />
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-medium text-amber-100">
-                              {transaction.type === 'depot'
-                                ? 'Dépôt'
-                                : transaction.type === 'retrait'
-                                  ? 'Retrait'
-                                  : 'Virement'}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {formatDate(transaction.date_transaction)}
-                            </p>
                           </div>
+                          <span
+                            className={`font-medium ${
+                              transaction.type === 'depot' || isRecipient
+                                ? 'text-green-400'
+                                : transaction.type === 'retrait'
+                                  ? 'text-red-400'
+                                  : 'text-blue-400'
+                            }`}
+                          >
+                            {transaction.type === 'depot' || isRecipient ? '+' : '-'}
+                            {formatCurrency(transaction.montant)}
+                          </span>
                         </div>
-                        <span
-                          className={`font-medium ${
-                            transaction.type === 'depot'
-                              ? 'text-green-400'
-                              : transaction.type === 'retrait'
-                                ? 'text-red-400'
-                                : 'text-blue-400'
-                          }`}
-                        >
-                          {transaction.type === 'depot' ? '+' : '-'}
-                          {formatCurrency(transaction.montant)}
-                        </span>
+                        <div className="mt-2 text-xs text-gray-400">
+                          {transaction.type === 'transfert'
+                            ? `De ${transaction.source_numero || 'N/A'} vers ${transaction.destination_numero || 'N/A'}`
+                            : `Compte: ${transaction.compte_source_numero || transaction.compte_destination_numero || 'N/A'}`}
+                          {transaction.commentaire && (
+                            <p className="mt-1 italic">{transaction.commentaire}</p>
+                          )}
+                          {transaction.status && (
+                            <p className="mt-1">
+                              <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${getStatusBadgeClass(transaction.status)}`}
+                              >
+                                {getStatusLabel(transaction.status)}
+                              </span>
+                            </p>
+                          )}
+                        </div>
                       </div>
-                      <div className="mt-2 text-xs text-gray-400">
-                        {transaction.type === 'virement'
-                          ? `De ${transaction.compte_source_numero || 'N/A'} vers ${transaction.compte_destination_numero || 'N/A'}`
-                          : `Compte: ${transaction.compte_source_numero || transaction.compte_destination_numero || 'N/A'}`}
-                        {transaction.commentaire && (
-                          <p className="mt-1 italic">{transaction.commentaire}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-lime-900 bg-gray-800 bg-opacity-20 py-12">
