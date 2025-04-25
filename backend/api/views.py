@@ -8,6 +8,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from .models import CompteBancaire, Utilisateur, Pret, Transaction
@@ -253,15 +254,20 @@ class ApprouverRejeterPret(generics.UpdateAPIView):
 
 
 class ListePret(generics.ListAPIView):
-    """Endpoint pour lister tous les pret"""
+    """Endpoint pour lister tous les prets"""
 
-    permission_classes = [IsAdmin, IsClient]
+    permission_classes = [IsAuthenticated]  # Changement ici
     serializer_class = PretSerializer
 
     def get_queryset(self):
         if self.request.user.role == "admin":
             return Pret.objects.all()
-        return Pret.objects.filter(compte__utilisateur=self.request.user)
+        elif self.request.user.role == "client":
+            return Pret.objects.filter(compte__utilisateur=self.request.user)
+        else:
+            return (
+                Pret.objects.none()
+            )  # Retourne une queryset vide pour les autres rôles
 
 
 class EffectuerTransaction(generics.CreateAPIView):
@@ -458,6 +464,7 @@ def verify_account(request):
         return Response(
             {
                 "id": compte.id,
+                "type": compte.utilisateur.role,
                 "numero_compte": compte.numero_compte,
                 "nom_proprietaire": compte.utilisateur.last_name,
                 "prenom_proprietaire": compte.utilisateur.first_name,
@@ -465,3 +472,44 @@ def verify_account(request):
         )
     except CompteBancaire.DoesNotExist:
         return Response({"error": "Compte non trouvé ou non approuvé"}, status=404)
+
+
+class Epargne(APIView):
+    def post(self, request):
+        compte_id = request.data.get("compte")
+        montant = request.data.get("montant")
+        montant = Decimal(montant)
+        compte_epargne = request.data.get("compte_epargne")
+
+        if compte_id and montant and compte_epargne:
+            compte = CompteBancaire.objects.get(id=compte_id)
+            if compte.solde < montant:
+                return Response(
+                    {"detail": "Solde insuffisant pour effectuer ce virement"}
+                )
+            compte.solde -= montant
+            compte.save()
+
+            compte_epargne = CompteBancaire.objects.get(id=compte_epargne)
+            compte_epargne.solde += montant
+            compte_epargne.save()
+
+            Transaction.objects.create(
+                compte_source=compte,
+                type="transfert",
+                compte_destination=compte_epargne,
+                montant=montant,
+                status="succès",
+                commentaire=f"Epargne effectué, montant: {montant}, date {datetime.now()}",
+            )
+
+            return Response({"detail": "Epargne effectué avec succès"})
+        else:
+            return Response({"detail": "Tous les champs sont requis."}, status=400)
+
+
+class UserInfo(APIView):
+    def get(self, request):
+        user = request.user
+        serializer = UtilisateurSerializer(user)
+        return Response(serializer.data)

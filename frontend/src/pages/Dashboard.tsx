@@ -25,6 +25,7 @@ import { toast } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import MobileMoneyModal from '../components/MobileMoneyModal'
 import SendMoneyModal from '../components/SendMoneyModal'
+import EpargneModal from '../components/EpargneModal'
 
 export default function Dashboard() {
   const [accounts, setAccounts] = useState<CompteBancaire[]>([])
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const [showSendMoneyModal, setShowSendMoneyModal] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [transactions, setTransactions] = useState<any[]>([])
+  const [showEpargneModal, setShowEpargneModal] = useState(false)
 
   // États pour le formulaire de création de compte
   const [accountType, setAccountType] = useState<'courant' | 'epargne'>('courant')
@@ -435,9 +437,13 @@ export default function Dashboard() {
                   <FaWallet className="mb-3 h-8 w-8 text-lime-400" />
                   <span className="text-sm font-medium text-amber-100">Dépôt / Retrait</span>
                 </button>
-                <button className="flex flex-col items-center rounded-xl border border-lime-900 p-6 text-center transition hover:border-lime-700 hover:bg-[#1a3019] hover:shadow-sm">
+                <button
+                  onClick={() => accounts.length > 0 && setShowEpargneModal(true)}
+                  disabled={accounts.length === 0}
+                  className="flex flex-col items-center rounded-xl border border-lime-900 p-6 text-center transition hover:border-lime-700 hover:bg-[#1a3019] hover:shadow-sm disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:border-lime-900 disabled:hover:bg-transparent disabled:hover:shadow-none"
+                >
                   <FaChartLine className="mb-3 h-8 w-8 text-lime-400" />
-                  <span className="text-sm font-medium text-amber-100">Investissements</span>
+                  <span className="text-sm font-medium text-amber-100">Epargne</span>
                 </button>
                 <button
                   onClick={() => accounts.length > 0 && setShowSendMoneyModal(true)}
@@ -734,6 +740,21 @@ export default function Dashboard() {
           onSuccess={() => {
             fetchAccounts()
             fetchTransactions()
+          }}
+        />
+      )}
+
+      {/* Epargne Modal */}
+      {showEpargneModal && (
+        <EpargneModal
+          accounts={accounts}
+          onClose={() => setShowEpargneModal(false)}
+          onSuccess={async () => {
+            // Refresh accounts to show updated balances
+            const updatedAccounts = await fetch_accounts_action()
+            if (!updatedAccounts.error) {
+              setAccounts(updatedAccounts)
+            }
           }}
         />
       )}

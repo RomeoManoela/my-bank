@@ -5,10 +5,16 @@ import { AxiosResponse } from 'axios'
 import api from './api.ts'
 import Loader from '../ui/Loader.tsx'
 
+interface DecodedToken {
+  exp: number
+  user_id: number
+}
+
 function ProtectedRoute(): React.ReactElement {
   const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated'>(
     'loading',
   )
+  const [userRole, setUserRole] = useState<string | null>(null)
 
   useEffect((): void => {
     async function checkToken() {
@@ -22,9 +28,11 @@ function ProtectedRoute(): React.ReactElement {
 
       try {
         // Vérifier si le token est expiré
-        const exp: number = jwtDecode(token) as number
+        const decoded: DecodedToken = jwtDecode(token)
+        const exp: number = decoded.exp
         const currentTime: number = Date.now() / 1000
-
+        const userInfo = await api.get('user-info/')
+        setUserRole(userInfo.data.role)
         if (exp < currentTime) {
           // Token expiré, essayer de le rafraîchir
           try {
@@ -33,6 +41,10 @@ function ProtectedRoute(): React.ReactElement {
             })
             const newToken: string = response.data.access
             localStorage.setItem('access_token', newToken)
+
+            // Mettre à jour le rôle avec le nouveau token
+            const newDecoded: DecodedToken = jwtDecode(newToken)
+
             setAuthState('authenticated')
           } catch (refreshError) {
             console.log(refreshError)
@@ -62,8 +74,12 @@ function ProtectedRoute(): React.ReactElement {
   if (authState === 'unauthenticated') {
     return <Navigate to="/login" replace />
   }
+  // Rediriger vers la page Admin si l'utilisateur est admin
+  if (userRole === 'admin') {
+    return <Navigate to="/admin" replace />
+  }
 
-  // Afficher les routes enfants si authentifié
+  // Afficher les routes enfants si authentifié et client
   return <Outlet />
 }
 

@@ -20,3 +20,13 @@ class IsEmployee(permissions.BasePermission):
 
     def has_permission(self, request, view):
         return request.user.is_authenticated and request.user.role == "employee"
+
+
+class IsAdminOrClient(permissions.BasePermission):
+    """Permission personnalisée pour vérifier si l'utilisateur est admin ou client"""
+
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role in [
+            "admin",
+            "client",
+        ]

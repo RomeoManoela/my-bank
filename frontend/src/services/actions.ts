@@ -134,7 +134,8 @@ export async function mobile_money_transaction_action({ request }: { request: Re
 export async function verify_account_action({ request }: ActionFunctionArgs) {
   try {
     const data = await request.json()
-    const response = await api.post('/verify-account/', data)
+    // Correction de l'URL - enlever le slash au début
+    const response = await api.post('verify-account/', data)
     return response.data
   } catch (error: any) {
     if (error.response && error.response.data) {
@@ -193,5 +194,32 @@ export async function transfer_money_action({ request }: ActionFunctionArgs) {
       }
     }
     return { error: error.message || 'Erreur lors du transfert' }
+  }
+}
+
+// Action pour effectuer une opération d'épargne
+export async function epargne_action({ request }: ActionFunctionArgs) {
+  try {
+    const formData = await request.formData()
+    const compte = formData.get('compte')
+    const montant = formData.get('montant')
+    const compte_epargne = formData.get('compte_epargne')
+
+    if (!compte || !montant || !compte_epargne) {
+      return { error: 'Tous les champs sont requis' }
+    }
+
+    const response = await api.post('/epargne/', {
+      compte,
+      montant,
+      compte_epargne,
+    })
+
+    return response.data
+  } catch (error: any) {
+    console.error("Erreur lors de l'opération d'épargne:", error)
+    return {
+      error: error.response?.data?.detail || "Erreur lors de l'opération d'épargne",
+    }
   }
 }

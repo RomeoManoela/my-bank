@@ -9,6 +9,7 @@ import { login_action, registration_action } from './services/actions.ts'
 import ProtectedRoute from './services/ProtectedRoute.tsx'
 import Dashboard from './pages/Dashboard.tsx'
 import Error from './ui/Error.tsx'
+import Admin from './pages/Admin.tsx'
 
 const router = createBrowserRouter([
   {
@@ -43,6 +44,11 @@ const router = createBrowserRouter([
         path: 'login',
         element: <Login />,
         action: login_action,
+      },
+      {
+        path: '/admin',
+        element: <Admin />,
+        errorElement: <Error />,
       },
     ],
   },
