@@ -358,7 +358,7 @@ export default function Dashboard() {
                   {accounts.map((account) => (
                     <div
                       key={account.id}
-                      className="relative overflow-hidden rounded-xl border border-lime-900 bg-gray-800 bg-opacity-40 p-6 shadow-sm transition hover:shadow-md"
+                      className="relative overflow-hidden rounded-xl border border-lime-900 bg-gray-800 bg-opacity-40 p-6"
                     >
                       <div className="mb-4 flex items-start justify-between">
                         <div className="flex items-center">
@@ -394,7 +394,6 @@ export default function Dashboard() {
                         </p>
                         <p className="text-xs text-gray-300">Solde disponible</p>
                       </div>
-                      <div className="absolute bottom-0 left-0 h-1 w-full bg-gradient-to-r from-[#294e28] to-lime-400"></div>
                     </div>
                   ))}
                 </div>
