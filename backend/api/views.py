@@ -242,11 +242,13 @@ class ApprouverRejeterPret(generics.UpdateAPIView):
     def perform_update(self, serializer):
         pret = serializer.instance
         nouveau_statut = serializer.validated_data.get("statut")
+        print(serializer.validated_data)
 
         # Si le prêt est approuvé
         if nouveau_statut == "approuve":
+            pret.statut = "en_cours"
             compte = pret.compte
-            compte.solde += pret.montant
+            compte.solde += Decimal(pret.montant)
             compte.save()
 
         serializer.save()
@@ -313,7 +315,7 @@ class ApprouverRejeterVirement(generics.UpdateAPIView):
 
     permission_classes = [IsAdmin]
     serializer_class = TransactionSerializer
-    queryset = Transaction.objects.filter(type="virement")
+    queryset = Transaction.objects.filter(type="transfert")
     lookup_field = "pk"
 
     def perform_update(self, serializer):
@@ -321,7 +323,7 @@ class ApprouverRejeterVirement(generics.UpdateAPIView):
         nouveau_statut = serializer.validated_data.get("status")
 
         # Vérifie que c'est bien un virement
-        if transaction.type != "virement":
+        if transaction.type != "transfert":
             raise ValidationError("Cette transaction n'est pas un virement")
 
         # Vérifie que le virement est en attente
@@ -329,8 +331,8 @@ class ApprouverRejeterVirement(generics.UpdateAPIView):
             raise ValidationError("Ce virement n'est plus en attente d'approbation")
 
         if nouveau_statut == "succès":
-            compte = transaction.compte
-            compte_destinataire = transaction.compte_destinataire
+            compte = transaction.compte_source
+            compte_destinataire = transaction.compte_destination
 
             if compte.solde < transaction.montant:
                 raise ValidationError("Solde insuffisant pour effectuer ce virement")
